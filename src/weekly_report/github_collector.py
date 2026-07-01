@@ -50,24 +50,38 @@ def collect_commits(
                 logger.warning("repo 접근 실패 (%s): %s", full_name, exc)
                 continue
 
-            # PyGithub 의 get_commits 는 since/until 과 sha(브랜치) 를 지원.
-            kwargs: dict = {"since": since, "until": until}
-            if gh_config.branch:
-                kwargs["sha"] = gh_config.branch
+            # 브랜치가 지정되면 각 브랜치를 순회하며 합집합을 구하고 sha 로
+            # 중복 제거한다 (dev→stg→main 처럼 겹치는 커밋 방지). 미지정 시
+            # None 하나만 돌려 repo 기본 브랜치를 사용한다.
+            branches = gh_config.branches or [None]
+            seen: set[str] = set()
 
-            for c in repo.get_commits(**kwargs):
-                gc = c.commit  # git 수준 커밋 (author/message)
-                author = _resolve_author(c, gc)
-                commits.append(
-                    Commit(
-                        repo=repo_name,
-                        sha=c.sha,
-                        message=gc.message or "",
-                        author=author,
-                        date=gc.author.date if gc.author else gc.committer.date,
-                        url=c.html_url,
+            for branch in branches:
+                # PyGithub 의 get_commits 는 since/until 과 sha(브랜치) 를 지원.
+                kwargs: dict = {"since": since, "until": until}
+                if branch:
+                    kwargs["sha"] = branch
+                try:
+                    for c in repo.get_commits(**kwargs):
+                        if c.sha in seen:
+                            continue
+                        seen.add(c.sha)
+                        gc = c.commit  # git 수준 커밋 (author/message)
+                        commits.append(
+                            Commit(
+                                repo=repo_name,
+                                sha=c.sha,
+                                message=gc.message or "",
+                                author=_resolve_author(c, gc),
+                                date=gc.author.date if gc.author else gc.committer.date,
+                                url=c.html_url,
+                            )
+                        )
+                except GithubException as exc:
+                    # 존재하지 않는 브랜치 등은 경고 후 다음 브랜치로.
+                    logger.warning(
+                        "브랜치 수집 실패 (%s@%s): %s", full_name, branch, exc
                     )
-                )
     finally:
         client.close()
 

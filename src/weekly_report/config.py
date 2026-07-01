@@ -24,7 +24,7 @@ class ConfigError(Exception):
 class GitHubConfig:
     org: str
     repos: list[str]
-    branch: str | None = None
+    branches: list[str] | None = None  # None 이면 각 repo 기본 브랜치
 
 
 @dataclass
@@ -114,6 +114,32 @@ def _require(section: dict, key: str, where: str):
     return section[key]
 
 
+def _parse_repos(raw) -> list[str]:
+    """repos 값을 list[str] 로 정규화. 단일 문자열/콤마구분/YAML 리스트 모두 허용."""
+    if isinstance(raw, str):
+        items = [r.strip() for r in raw.split(",")]
+    else:
+        items = [str(r).strip() for r in raw]
+    return [r for r in items if r]
+
+
+def _parse_branches(raw) -> list[str] | None:
+    """branches 값을 list[str] 로 정규화.
+
+    - None / 빈 값 → None (각 repo 기본 브랜치 사용)
+    - "dev, stg, main" 같은 콤마 구분 문자열 → ["dev", "stg", "main"]
+    - YAML 리스트 → 그대로 (공백 제거)
+    """
+    if raw is None or raw == "":
+        return None
+    if isinstance(raw, str):
+        items = [b.strip() for b in raw.split(",")]
+    else:
+        items = [str(b).strip() for b in raw]
+    items = [b for b in items if b]
+    return items or None
+
+
 def load_config(path: str | os.PathLike = "config.yaml") -> Config:
     """YAML 파일 + 환경변수를 읽어 Config 를 만든다."""
     p = Path(path)
@@ -128,8 +154,8 @@ def load_config(path: str | os.PathLike = "config.yaml") -> Config:
     gh = raw.get("github", {})
     github = GitHubConfig(
         org=_require(gh, "org", "github"),
-        repos=list(_require(gh, "repos", "github")),
-        branch=gh.get("branch") or None,
+        repos=_parse_repos(_require(gh, "repos", "github")),
+        branches=_parse_branches(gh.get("branches") or gh.get("branch")),
     )
     if not github.repos:
         raise ConfigError("config.yaml 의 [github].repos 가 비어 있습니다.")
