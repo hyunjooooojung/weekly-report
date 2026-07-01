@@ -31,8 +31,23 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Install package
+        # 패키지(+의존성)를 설치해야 `python -m weekly_report` 가 동작함.
+        run: pip install .
+
+      - name: Generate config.yaml
+        # config.yaml 은 git 에 올리지 않고(개인정보 보호) 여기서 생성한다.
+        # 식별 정보는 Actions Variables(vars.*), 구조적 값은 리터럴.
+        env:
+          GH_ORG: ${{ vars.GH_ORG }}
+          GH_REPOS: ${{ vars.GH_REPOS }}
+          GH_BRANCHES: ${{ vars.GH_BRANCHES }}
+          VAULT_REPO: ${{ vars.VAULT_REPO }}
+          VAULT_BRANCH: ${{ vars.VAULT_BRANCH }}
+          CONFLUENCE_BASE_URL: ${{ vars.CONFLUENCE_BASE_URL }}
+          CONFLUENCE_SPACE_KEY: ${{ vars.CONFLUENCE_SPACE_KEY }}
+          CONFLUENCE_PARENT_PAGE_ID: ${{ vars.CONFLUENCE_PARENT_PAGE_ID }}
+        run: python scripts/gen_config.py
 
       - name: Run weekly report pipeline
         env:

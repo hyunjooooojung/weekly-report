@@ -25,24 +25,43 @@ GitHub organization 내 지정 리포지토리들의 커밋을 매주 자동 수
 
 ## 설정
 
-1. 예시 복사 후 값 채우기 (`config.yaml` 은 gitignore 됨):
-   ```bash
-   cp config.example.yaml config.yaml
-   ```
-2. 비민감 설정은 `config.yaml`, 민감정보는 환경변수/GitHub Secrets 로:
+민감정보는 **GitHub Secrets**, 식별 설정은 **GitHub Actions Variables** 로 분리한다.
+`config.yaml` 은 git 에 커밋하지 않고(개인정보 보호), 워크플로가 Variables 로부터
+`scripts/gen_config.py` 로 생성한다. → 나중에 레포를 public 으로 바꿔도 히스토리에
+개인정보가 남지 않는다.
 
-   | 환경변수 | 용도 |
-   |----------|------|
-   | `GH_API_TOKEN` | org 내 repo read 권한 PAT (⚠️ 기본 `GITHUB_TOKEN` 으론 크로스-레포 불가) |
-   | `ANTHROPIC_API_KEY` | Claude 요약 |
-   | `CONFLUENCE_EMAIL` / `CONFLUENCE_API_TOKEN` | Confluence Cloud 인증 |
-   | `VAULT_REPO_TOKEN` | Obsidian vault 레포 push 권한 PAT |
+**Secrets** (Settings → Secrets and variables → Actions → *Secrets*):
+
+| Secret | 용도 |
+|--------|------|
+| `GH_API_TOKEN` | org 내 repo read 권한 PAT (⚠️ 기본 `GITHUB_TOKEN` 으론 크로스-레포 불가) |
+| `ANTHROPIC_API_KEY` | Claude 요약 |
+| `CONFLUENCE_EMAIL` / `CONFLUENCE_API_TOKEN` | Confluence Cloud 인증 |
+| `VAULT_REPO_TOKEN` | Obsidian vault 레포 write 권한 PAT |
+
+**Variables** (같은 화면 → *Variables*):
+
+| Variable | 예시 |
+|----------|------|
+| `GH_ORG` | `flunti` |
+| `GH_REPOS` | `oiia` (여러 개면 콤마) |
+| `GH_BRANCHES` | `dev,stg,main` (생략 시 기본 브랜치) |
+| `VAULT_REPO` | `owner/name` (⚠️ URL 아님) |
+| `VAULT_BRANCH` | `main` (선택) |
+| `CONFLUENCE_BASE_URL` | `https://xxx.atlassian.net/wiki` |
+| `CONFLUENCE_SPACE_KEY` | `~6318...` |
+| `CONFLUENCE_PARENT_PAGE_ID` | (선택) |
+
+로컬 실행 시에는 `config.example.yaml` 을 복사해 직접 `config.yaml` 을 만든다:
+```bash
+cp config.example.yaml config.yaml   # 값 채우기 (gitignore 됨)
+```
 
 ## 로컬 실행
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -e .            # 패키지 설치 (python -m weekly_report 사용 가능)
 
 # 발행/푸시 없이 노트 Markdown 만 출력 (안전한 미리보기)
 python -m weekly_report --dry-run --since 2026-06-24 --until 2026-07-01
