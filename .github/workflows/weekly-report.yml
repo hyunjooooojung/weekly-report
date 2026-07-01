@@ -1,0 +1,55 @@
+name: Weekly Report
+
+on:
+  schedule:
+    # 매주 월요일 00:00 UTC = 월요일 09:00 KST 에 지난 한 주를 정리.
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+    # 수동 실행/테스트용. 기간을 직접 지정할 수 있음.
+    inputs:
+      since:
+        description: "수집 시작일 (YYYY-MM-DD, 선택)"
+        required: false
+      until:
+        description: "수집 종료일 (YYYY-MM-DD, 선택)"
+        required: false
+      dry_run:
+        description: "dry-run (발행/푸시 없이 노트만 로그 출력)"
+        type: boolean
+        default: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run weekly report pipeline
+        env:
+          GH_API_TOKEN: ${{ secrets.GH_API_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
+          CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          VAULT_REPO_TOKEN: ${{ secrets.VAULT_REPO_TOKEN }}
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.since }}" ]; then
+            ARGS="$ARGS --since ${{ github.event.inputs.since }}"
+          fi
+          if [ -n "${{ github.event.inputs.until }}" ]; then
+            ARGS="$ARGS --until ${{ github.event.inputs.until }}"
+          fi
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          python -m weekly_report $ARGS
