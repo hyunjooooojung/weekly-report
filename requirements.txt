@@ -1,0 +1,5 @@
+anthropic>=0.40.0
+PyGithub>=2.5.0
+requests>=2.32.0
+PyYAML>=6.0.2
+markdown>=3.7

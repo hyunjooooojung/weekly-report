@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "weekly-report"
+version = "0.1.0"
+description = "GitHub 커밋을 자동 수집해 Obsidian 노트로 만들고 Confluence에 발행하는 주간 리포트 파이프라인"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "anthropic>=0.40.0",
+    "PyGithub>=2.5.0",
+    "requests>=2.32.0",
+    "PyYAML>=6.0.2",
+    "markdown>=3.7",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+weekly-report = "weekly_report.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
