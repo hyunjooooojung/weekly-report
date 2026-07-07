@@ -48,13 +48,28 @@ def test_build_note_frontmatter_and_stats():
 
 def test_build_note_detail_grouped_by_date():
     note = build_note(_period(), _commits(), summary_markdown=None)
-    assert "## 📅 상세 (프로젝트·날짜별)" in note
+    assert "## 📅 상세 (프로젝트·날짜별, 머지 제외)" in note
     assert "### repo-a" in note
     assert "### repo-b" in note
     # 날짜(요일) 소제목과 커밋 링크/저자.
     assert "#### 6/25 (" in note
     assert "[`aaaaaaa`](https://x/a)" in note
     assert "_alice_" in note
+
+
+def test_detail_excludes_merge_but_stats_count_it():
+    # 머지 커밋을 추가 → 집계엔 포함, 상세엔 제외.
+    commits = _commits() + [
+        Commit("repo-a", "9" * 40, "Merge pull request #9 from flunti/x", "eve",
+               datetime(2026, 6, 28, tzinfo=timezone.utc), "https://x/9"),
+    ]
+    note = build_note(_period(), commits, summary_markdown=None)
+    # 집계: 총 4커밋, 미분류(머지) 1.
+    assert "총 **4** 커밋" in note
+    assert "🗂 미분류 1" in note
+    # 상세 구간에는 머지가 없어야 한다.
+    detail = note.split("## 📅 상세", 1)[1]
+    assert "Merge pull request #9" not in detail
 
 
 def test_summary_callout_present_and_prefixed():

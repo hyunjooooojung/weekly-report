@@ -77,7 +77,7 @@ def build_note(
     parts.append(_stats(commits))
 
     parts.append("---\n")
-    parts.append("## 📅 상세 (프로젝트·날짜별)\n")
+    parts.append("## 📅 상세 (프로젝트·날짜별, 머지 제외)\n")
     parts.append(_detail(commits))
 
     # AI 회고 (있을 때만) — Obsidian note 콜아웃.
@@ -118,7 +118,11 @@ def _weekday_ko(d: date) -> str:
 
 
 def _detail(commits: list[Commit]) -> str:
-    """repo → 날짜(요일) 순으로 그룹화한 원본 커밋 목록."""
+    """repo → 날짜(요일) 순으로 그룹화한 커밋 목록.
+
+    머지/브랜치동기 커밋은 노이즈라 상세에서 제외한다 (집계 수치에는 포함).
+    """
+    commits = [c for c in commits if not c.is_merge]
     by_repo: dict[str, list[Commit]] = defaultdict(list)
     for c in commits:
         by_repo[c.repo].append(c)

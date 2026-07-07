@@ -35,6 +35,12 @@ def test_non_conventional_is_other():
     assert _commit("Merge branch 'main'").category == "other"
 
 
+def test_alias_prefixes_map_to_fix():
+    # hotfix/bugfix 는 표준 타입이 아니지만 fix 로 정규화된다.
+    assert _commit("hotfix: 급한 수정").category == "fix"
+    assert _commit("bugfix(auth): 로그인 오류").category == "fix"
+
+
 def test_category_label_fallback():
     assert category_label("feat") == "✨ 기능"
     assert category_label("unknown-key") == category_label("other")

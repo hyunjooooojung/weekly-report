@@ -24,6 +24,12 @@ _CATEGORY_LABELS: dict[str, str] = {
 
 _CONVENTIONAL_RE = re.compile(r"^(?P<type>[a-z]+)(\([^)]*\))?!?:", re.IGNORECASE)
 
+# Conventional 표준은 아니지만 실무에서 흔한 prefix → 표준 카테고리로 정규화.
+_CATEGORY_ALIASES: dict[str, str] = {
+    "hotfix": "fix",
+    "bugfix": "fix",
+}
+
 
 @dataclass
 class Commit:
@@ -60,6 +66,7 @@ class Commit:
         m = _CONVENTIONAL_RE.match(self.subject)
         if m:
             t = m.group("type").lower()
+            t = _CATEGORY_ALIASES.get(t, t)   # hotfix→fix 등 별칭 정규화
             if t in _CATEGORY_LABELS:
                 return t
         return "other"
