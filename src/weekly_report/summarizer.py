@@ -7,6 +7,10 @@
   같은 구독 로그인이 없는 환경용.
 
 요약 본문과 (옵션) "한 주 회고" 를 생성한다. 커밋이 없으면 호출하지 않는다.
+
+주의: claude CLI 는 로컬 Claude Code 설정(출력 스타일·CLAUDE.md 등)을 상속하므로,
+`--system-prompt` 로 시스템 프롬프트를 통째로 교체하고 `--setting-sources ""` 로
+설정 소스를 차단해 요약 결과에 스타일/메타설명이 새어들지 않게 한다.
 """
 
 from __future__ import annotations
@@ -31,13 +35,15 @@ _SYSTEM_PROMPT = """\
 규칙:
 - 인사말이나 "작성하겠습니다" 같은 서두·메타 문장 없이, 첫 줄부터 곧바로
   요약 Markdown 만 출력하세요. (설명·맺음말 금지)
+- 이 요약 작업 자체나 당신의 작업 방식에 대한 언급(예: "★ Insight" 교육 블록,
+  작업 계획, 도구/에이전트 이야기)을 절대 넣지 마세요. 오직 커밋 내용만 다룹니다.
 - 출력은 순수 Markdown 조각으로만 (최상위 제목 #, frontmatter, 코드펜스 없이).
 - 카테고리별(기능/버그 수정/리팩터링/문서/기타 등)로 묶어 소제목(##)과
   불릿으로 정리하세요.
 - 커밋 메시지를 그대로 나열하지 말고, 관련된 변경을 묶어 의미 단위로
   요약하세요. 중요한 변화는 앞쪽에 배치하세요.
 - 커밋 해시나 저자를 본문에 나열할 필요는 없습니다 (원본은 별도 첨부됨).
-- 머지 커밋(Merge ...)은 요약에서 제외하세요.
+- 머지 커밋(Merge ...)과 중복된 커밋은 요약에서 제외하세요.
 - 과장 없이 사실 기반으로, 간결하게 작성하세요.
 """
 
@@ -76,18 +82,28 @@ def generate(
 
 
 def _summarize_via_cli(commits: list[Commit], config: SummarizerConfig) -> SummaryResult:
-    prompt = _build_prompt(commits, config.language, config.retrospective)
+    data_prompt = _build_data_prompt(commits, config.language, config.retrospective)
     logger.info("Claude CLI(%s) 요약 요청: 커밋 %d개", config.model, len(commits))
-    text = _run_claude_cli(prompt, config.model)
+    text = _run_claude_cli(_SYSTEM_PROMPT, data_prompt, config.model)
     return _split_result(text, config.retrospective)
 
 
-def _run_claude_cli(prompt: str, model: str) -> str:
-    """`claude -p` 를 headless 로 실행해 응답 텍스트를 반환한다."""
+def _run_claude_cli(system_prompt: str, data_prompt: str, model: str) -> str:
+    """`claude -p` 를 headless 로 실행해 응답 텍스트를 반환한다.
+
+    로컬 출력 스타일/CLAUDE.md 가 요약에 새어들지 않도록:
+    - --system-prompt 로 시스템 프롬프트를 통째로 교체
+    - --setting-sources "" 로 user/project/local 설정 소스를 차단 (auth 는 유지)
+    """
     try:
         result = subprocess.run(
-            ["claude", "-p", "--model", model],
-            input=prompt,
+            [
+                "claude", "-p",
+                "--model", model,
+                "--system-prompt", system_prompt,
+                "--setting-sources", "",
+            ],
+            input=data_prompt,
             capture_output=True,
             text=True,
             timeout=300,
@@ -124,28 +140,26 @@ def _summarize_via_api(
     from anthropic import Anthropic  # 지연 import: CLI provider 만 쓸 땐 불필요.
 
     client = Anthropic(api_key=api_key)
-    prompt = _build_prompt(commits, config.language, retrospective=False)
+    data_prompt = _build_data_prompt(commits, config.language, retrospective=False)
 
     logger.info("Claude API(%s) 요약 요청: 커밋 %d개", config.model, len(commits))
     message = client.messages.create(
         model=config.model,
         max_tokens=2048,
         system=_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[{"role": "user", "content": data_prompt}],
     )
     return "".join(
         block.text for block in message.content if block.type == "text"
     ).strip()
 
 
-# --- 공용 프롬프트 --------------------------------------------------------
+# --- 공용 데이터 프롬프트 (시스템 프롬프트는 별도로 전달) ------------------
 
 
-def _build_prompt(commits: list[Commit], language: str, retrospective: bool) -> str:
+def _build_data_prompt(commits: list[Commit], language: str, retrospective: bool) -> str:
     """커밋들을 repo/카테고리 힌트와 함께 프롬프트 문자열로 직렬화."""
     lines: list[str] = [
-        _SYSTEM_PROMPT,
-        "",
         f"아래는 이번 주 커밋 목록입니다. {language} 로 요약해 주세요.",
         "각 줄 형식: [repo] (추정 카테고리) 커밋 제목",
         "",
@@ -156,7 +170,7 @@ def _build_prompt(commits: list[Commit], language: str, retrospective: bool) -> 
     if retrospective:
         lines += [
             "",
-            f"요약을 먼저 작성한 뒤, 반드시 아래 구분선을 한 줄로 출력하세요:",
+            "요약을 먼저 작성한 뒤, 반드시 아래 구분선을 한 줄로 출력하세요:",
             _RETRO_MARKER,
             "그 다음 이번 주 작업에 대한 '한 주 회고'를 2~4문장으로 작성하세요 "
             "(잘된 점/아쉬운 점/다음 주 관점). 구분선 위에는 회고를 쓰지 마세요.",

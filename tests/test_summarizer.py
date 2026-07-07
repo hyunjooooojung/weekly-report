@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from weekly_report.models import Commit
 from weekly_report.summarizer import (
     _RETRO_MARKER,
-    _build_prompt,
+    _build_data_prompt,
     _split_result,
 )
 
@@ -37,8 +37,8 @@ def test_split_result_retro_disabled_keeps_whole_body():
 
 
 def test_build_prompt_marker_toggles_with_retrospective():
-    with_retro = _build_prompt(_commits(), "ko", retrospective=True)
-    without = _build_prompt(_commits(), "ko", retrospective=False)
+    with_retro = _build_data_prompt(_commits(), "ko", retrospective=True)
+    without = _build_data_prompt(_commits(), "ko", retrospective=False)
     assert _RETRO_MARKER in with_retro
     assert _RETRO_MARKER not in without
     # 커밋 제목이 프롬프트에 직렬화된다.
