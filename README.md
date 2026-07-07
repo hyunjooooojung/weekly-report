@@ -35,9 +35,14 @@ GitHub organization 내 지정 리포지토리들의 커밋을 매주 자동 수
 | Secret | 용도 |
 |--------|------|
 | `GH_API_TOKEN` | org 내 repo read 권한 PAT (⚠️ 기본 `GITHUB_TOKEN` 으론 크로스-레포 불가) |
-| `ANTHROPIC_API_KEY` | Claude 요약 |
 | `CONFLUENCE_EMAIL` / `CONFLUENCE_API_TOKEN` | Confluence Cloud 인증 |
 | `VAULT_REPO_TOKEN` | Obsidian vault 레포 write 권한 PAT |
+| `ANTHROPIC_API_KEY` | (선택) AI 요약을 켤 때만. 기본 off 라 **등록 불필요** |
+
+> **요약 방식**: 기본적으로 AI 요약은 **꺼져 있다**(`summarizer.enabled: false`).
+> Anthropic API 는 claude.ai 구독과 별개로 유료 과금되기 때문. 대신 노트 상단에
+> **API 없이 커밋을 집계한 무료 "미니 요약"**(카테고리별 개수 + 최근 커밋)이
+> 들어간다. 서술형 AI 요약을 원하면 `enabled: true` + `ANTHROPIC_API_KEY` 를 추가.
 
 **Variables** (같은 화면 → *Variables*):
 

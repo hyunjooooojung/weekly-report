@@ -12,6 +12,9 @@ from datetime import date, datetime
 
 from .models import CATEGORY_ORDER, Commit, category_label
 
+# 미니 요약에 노출할 "최근 커밋" 최대 개수.
+_RECENT_LIMIT = 5
+
 
 @dataclass
 class ReportPeriod:
@@ -65,8 +68,12 @@ def build_note(
         parts.append("> 이번 주에는 수집된 커밋이 없습니다.\n")
         return "\n".join(parts)
 
+    # 무료(집계형) 미니 요약 — API 없이 커밋을 세어 상단에 항상 노출.
+    parts.append(_mini_summary(commits))
+
+    # AI 요약은 있으면(summarizer.enabled) 미니 요약 아래에 덧붙인다.
     if summary_markdown:
-        parts.append("## 📋 요약\n")
+        parts.append("## 📋 AI 요약\n")
         parts.append(summary_markdown.strip() + "\n")
 
     parts.append("---\n")
@@ -74,6 +81,40 @@ def build_note(
     parts.append(_appendix(commits))
 
     return "\n".join(parts)
+
+
+def _mini_summary(commits: list[Commit]) -> str:
+    """API 없이 커밋을 집계한 무료 미니 요약 블록.
+
+    (a) 총 커밋수 + 대상 repo, (b) 카테고리별 개수 한 줄,
+    (c) 최신순 상위 몇 건의 커밋을 이모지·sha 링크로 나열한다.
+    커밋의 '중요도'를 판정할 수단이 없으므로 정직하게 날짜 최신순으로 뽑는다.
+    """
+    repos = sorted({c.repo for c in commits})
+
+    # 카테고리별 개수 (정의된 순서대로, 존재하는 것만).
+    counts: dict[str, int] = defaultdict(int)
+    for c in commits:
+        counts[c.category] += 1
+    count_parts = [
+        f"{category_label(cat)} {counts[cat]}"
+        for cat in CATEGORY_ORDER
+        if counts.get(cat)
+    ]
+
+    lines: list[str] = ["## 🧮 이번 주 요약\n"]
+    lines.append(f"- 총 **{len(commits)}** 커밋 · {', '.join(repos)}")
+    if count_parts:
+        lines.append(f"- {' · '.join(count_parts)}")
+
+    recent = sorted(commits, key=lambda c: c.date, reverse=True)[:_RECENT_LIMIT]
+    lines.append("- 최근 커밋 (최신순):")
+    for c in recent:
+        emoji = category_label(c.category).split(" ", 1)[0]  # 라벨 앞의 이모지만
+        subject = c.subject.replace("\n", " ")
+        lines.append(f"    - {emoji} {subject} ([`{c.short_sha}`]({c.url}))")
+
+    return "\n".join(lines) + "\n"
 
 
 def _frontmatter(

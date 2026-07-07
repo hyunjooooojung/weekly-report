@@ -52,7 +52,8 @@ jobs:
       - name: Run weekly report pipeline
         env:
           GH_API_TOKEN: ${{ secrets.GH_API_TOKEN }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # AI 요약(summarizer.enabled)을 켤 때만 ANTHROPIC_API_KEY 를 추가한다.
+          # 기본은 off 이므로 등록 불필요 (무료 집계 요약이 대신 들어감).
           CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
           CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
           VAULT_REPO_TOKEN: ${{ secrets.VAULT_REPO_TOKEN }}

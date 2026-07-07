@@ -53,7 +53,10 @@ def main() -> None:
             "title_template": "주간 개발 리포트 {week}",
         },
         "summarizer": {
-            "enabled": True,
+            # 기본 off — AI 요약은 Anthropic API 유료 과금이 발생하므로 끈다.
+            # 대신 note_builder 가 API 없는 무료 집계 요약을 넣는다.
+            # 개인 키가 생겨 켜려면 true 로 바꾸고 ANTHROPIC_API_KEY Secret 추가.
+            "enabled": False,
             "model": "claude-opus-4-8",
             "language": "ko",
         },

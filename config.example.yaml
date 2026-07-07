@@ -25,6 +25,9 @@ confluence:
   title_template: "주간 개발 리포트 {week}"          # {week} 는 ISO 주차(YYYY-Www)로 치환
 
 summarizer:
-  enabled: true                # false 로 두면 AI 요약 생략, 원본 부록만 생성
-  model: claude-opus-4-8
+  enabled: false               # 기본 off. true 로 켜면 Claude 로 서술형 요약을
+                               # 추가하지만 Anthropic API 유료 과금이 발생하고
+                               # ANTHROPIC_API_KEY 가 필요함. off 여도 note_builder 가
+                               # API 없는 무료 집계(미니) 요약을 노트 상단에 넣는다.
+  model: claude-opus-4-8       # enabled: true 일 때만 사용
   language: ko

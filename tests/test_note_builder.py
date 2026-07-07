@@ -38,7 +38,8 @@ def test_build_note_contains_frontmatter_and_sections():
     assert note.startswith("---\n")
     assert "week: 2026-W27" in note
     assert "commit_count: 3" in note
-    assert "## 📋 요약" in note
+    # AI 요약을 넘기면 미니 요약 아래에 'AI 요약' 섹션으로 붙는다.
+    assert "## 📋 AI 요약" in note
     assert "## 📑 커밋 상세 (원본)" in note
     # repo 별 섹션과 커밋 링크가 있어야 함.
     assert "### repo-a" in note
@@ -49,16 +50,30 @@ def test_build_note_contains_frontmatter_and_sections():
 
 def test_build_note_groups_by_category():
     note = build_note(_period(), _commits(), summary_markdown=None)
-    # 요약이 없으면 요약 섹션은 빠진다.
-    assert "## 📋 요약" not in note
+    # AI 요약을 안 넘기면 'AI 요약' 섹션은 빠진다.
+    assert "## 📋 AI 요약" not in note
     assert "✨ 기능" in note
     assert "🐛 버그 수정" in note
     assert "🔧 기타" in note
+
+
+def test_mini_summary_present_and_aggregates():
+    # AI 요약이 없어도 무료 미니 요약은 항상 들어간다.
+    note = build_note(_period(), _commits(), summary_markdown=None)
+    assert "## 🧮 이번 주 요약" in note
+    assert "총 **3** 커밋" in note
+    # 카테고리별 개수 집계 (feat/fix/chore 각 1건).
+    assert "✨ 기능 1" in note
+    assert "🐛 버그 수정 1" in note
+    assert "🔧 기타 1" in note
+    # 최근 커밋(최신순) 목록에 sha 링크가 노출된다 (가장 최근 = repo-b chore).
+    assert "([`ccccccc`](https://x/c))" in note
 
 
 def test_build_note_empty_week():
     note = build_note(_period(), [], summary_markdown=None)
     assert "수집된 커밋이 없습니다" in note
     assert "commit_count: 0" in note
-    # 빈 주에는 상세 부록을 만들지 않는다.
+    # 빈 주에는 미니 요약도, 상세 부록도 만들지 않는다.
     assert "커밋 상세" not in note
+    assert "이번 주 요약" not in note
