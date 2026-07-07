@@ -1,6 +1,36 @@
 import yaml
 
-from weekly_report.config import SummarizerConfig, _parse_branches, _parse_repos
+from weekly_report.config import (
+    SummarizerConfig,
+    _parse_branches,
+    _parse_repos,
+    load_config,
+)
+
+
+def _write_cfg(tmp_path, github_body: str):
+    p = tmp_path / "config.yaml"
+    p.write_text(
+        "github:\n"
+        f"{github_body}"
+        "obsidian:\n"
+        "  vault_repo: o/r\n"
+        "confluence:\n"
+        "  base_url: https://x/wiki\n"
+        '  space_key: "~abc"\n',
+        encoding="utf-8",
+    )
+    return p
+
+
+def test_load_config_parses_author(tmp_path):
+    p = _write_cfg(tmp_path, "  org: flunti\n  repos: [oiia]\n  author: hyunjooooojung\n")
+    assert load_config(p).github.author == "hyunjooooojung"
+
+
+def test_load_config_author_absent_is_none(tmp_path):
+    p = _write_cfg(tmp_path, "  org: flunti\n  repos: [oiia]\n")
+    assert load_config(p).github.author is None
 
 
 def test_summarizer_defaults_to_claude_cli():

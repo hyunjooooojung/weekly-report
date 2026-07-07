@@ -33,12 +33,16 @@ def _require_env(name: str) -> str:
 def main() -> None:
     branches = _split(os.environ.get("GH_BRANCHES"))
 
+    author = os.environ.get("GH_AUTHOR", "").strip()
+
     config = {
         "github": {
             "org": _require_env("GH_ORG"),
             "repos": _split(_require_env("GH_REPOS")),
             # 미지정 시 키를 생략해 각 repo 기본 브랜치를 사용.
             **({"branches": branches} if branches else {}),
+            # 지정 시 해당 author(GitHub login/이메일) 커밋만.
+            **({"author": author} if author else {}),
         },
         "schedule": {"lookback_days": 7},
         "obsidian": {

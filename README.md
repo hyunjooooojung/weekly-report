@@ -57,6 +57,7 @@ GitHub organization 내 지정 리포지토리들의 커밋을 매주 자동 수
 | `GH_ORG` | `flunti` |
 | `GH_REPOS` | `oiia` (여러 개면 콤마) |
 | `GH_BRANCHES` | `dev,stg,main` (생략 시 기본 브랜치) |
+| `GH_AUTHOR` | `your-login` (선택, 특정 author 커밋만. 생략 시 전체) |
 | `VAULT_REPO` | `owner/name` (⚠️ URL 아님) |
 | `VAULT_BRANCH` | `main` (선택) |
 | `NOTES_DIR` | `Weekly Reports` (선택, 중첩 경로 가능. 미지정 시 기본값) |

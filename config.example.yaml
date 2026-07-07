@@ -9,6 +9,8 @@ github:
     - repo-b
   # branches: [dev, stg, main]  # (선택) 여러 브랜치의 커밋을 합쳐 sha 로 중복 제거.
                                 # 생략 시 각 repo 기본 브랜치만. 콤마 문자열도 허용.
+  # author: your-login          # (선택) 특정 author(GitHub login/이메일) 커밋만 수집.
+                                # 생략 시 모든 author.
 
 schedule:
   lookback_days: 7              # 최근 며칠간의 커밋을 수집할지 (기본 7일)

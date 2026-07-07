@@ -57,10 +57,13 @@ def collect_commits(
             seen: set[str] = set()
 
             for branch in branches:
-                # PyGithub 의 get_commits 는 since/until 과 sha(브랜치) 를 지원.
+                # PyGithub 의 get_commits 는 since/until, sha(브랜치), author 를 지원.
                 kwargs: dict = {"since": since, "until": until}
                 if branch:
                     kwargs["sha"] = branch
+                if gh_config.author:
+                    # 서버 사이드에서 해당 author(GitHub login/이메일) 커밋만 필터.
+                    kwargs["author"] = gh_config.author
                 try:
                     for c in repo.get_commits(**kwargs):
                         if c.sha in seen:

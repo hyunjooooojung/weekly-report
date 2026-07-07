@@ -25,6 +25,7 @@ class GitHubConfig:
     org: str
     repos: list[str]
     branches: list[str] | None = None  # None 이면 각 repo 기본 브랜치
+    author: str | None = None          # 지정 시 해당 author(GitHub login/이메일) 커밋만
 
 
 @dataclass
@@ -159,6 +160,7 @@ def load_config(path: str | os.PathLike = "config.yaml") -> Config:
         org=_require(gh, "org", "github"),
         repos=_parse_repos(_require(gh, "repos", "github")),
         branches=_parse_branches(gh.get("branches") or gh.get("branch")),
+        author=(str(gh.get("author") or "").strip() or None),
     )
     if not github.repos:
         raise ConfigError("config.yaml 의 [github].repos 가 비어 있습니다.")
