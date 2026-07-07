@@ -1,10 +1,14 @@
 # Weekly Report Pipeline
 
 GitHub organization 내 지정 리포지토리들의 커밋을 매주 자동 수집하여,
-**Claude 로 요약/분류**하고 원본 커밋 부록을 붙인 **Obsidian 노트**를 만들고,
+**Claude 로 요약/분류**하고 날짜별 커밋 상세를 붙인 **Obsidian 노트**를 만들고,
 별도 **Obsidian vault 레포**에 push + **Confluence Cloud**에 발행하는 파이프라인.
 
-매주 GitHub Actions cron 으로 자동 실행됩니다.
+**실행 방식은 두 가지**:
+- **로컬 crontab (권장, 주간 자동 실행)** — AI 요약을 **Claude Code CLI(구독 인증)**로
+  생성하므로 Anthropic API 추가 과금이 **없다**. 맥이 켜져 있어야 한다.
+- **GitHub Actions (수동/백업)** — 클라우드엔 구독 CLI 가 없어 AI 요약은 꺼진 채
+  (집계 요약만) 실행된다. 주간 cron 은 비활성, 수동 `Run workflow` 로만 사용.
 
 ## 파이프라인 구조
 
@@ -17,8 +21,8 @@ GitHub organization 내 지정 리포지토리들의 커밋을 매주 자동 수
 | 모듈 | 역할 |
 |------|------|
 | `github_collector.py` | 기간 내 커밋 수집 (PyGithub) |
-| `summarizer.py` | Claude 로 카테고리별 주간 요약 |
-| `note_builder.py` | Obsidian 노트(frontmatter + 요약 + 원본 부록) 생성 |
+| `summarizer.py` | 주간 요약/회고 생성 — provider `claude_cli`(구독, 무과금) 또는 `api`(유료) |
+| `note_builder.py` | Obsidian 노트 생성 (요약 콜아웃 + 집계 + 날짜별 상세 + 회고 콜아웃) |
 | `vault_writer.py` | vault 레포 clone → 노트 커밋 → push |
 | `confluence_publisher.py` | Markdown→storage 변환 후 페이지 생성/업데이트 |
 | `cli.py` | 전체 오케스트레이션 |
@@ -37,12 +41,14 @@ GitHub organization 내 지정 리포지토리들의 커밋을 매주 자동 수
 | `GH_API_TOKEN` | org 내 repo read 권한 PAT (⚠️ 기본 `GITHUB_TOKEN` 으론 크로스-레포 불가) |
 | `CONFLUENCE_EMAIL` / `CONFLUENCE_API_TOKEN` | Confluence Cloud 인증 |
 | `VAULT_REPO_TOKEN` | Obsidian vault 레포 write 권한 PAT |
-| `ANTHROPIC_API_KEY` | (선택) AI 요약을 켤 때만. 기본 off 라 **등록 불필요** |
+| `ANTHROPIC_API_KEY` | (선택) provider=`api` 일 때만. 로컬 crontab(=`claude_cli`)엔 **불필요** |
 
-> **요약 방식**: 기본적으로 AI 요약은 **꺼져 있다**(`summarizer.enabled: false`).
-> Anthropic API 는 claude.ai 구독과 별개로 유료 과금되기 때문. 대신 노트 상단에
-> **API 없이 커밋을 집계한 무료 "미니 요약"**(카테고리별 개수 + 최근 커밋)이
-> 들어간다. 서술형 AI 요약을 원하면 `enabled: true` + `ANTHROPIC_API_KEY` 를 추가.
+> **요약 provider** (`config.yaml` 의 `summarizer.provider`):
+> - `claude_cli` (로컬 기본) — 로컬 `claude` CLI 를 headless 호출. claude.ai
+>   **구독으로 인증**되어 API 유료 과금이 없다. `ANTHROPIC_API_KEY` 불필요.
+> - `api` — Anthropic SDK 직접 호출(유료). 구독 로그인이 없는 GitHub Actions 용.
+> - GitHub Actions 경로는 `gen_config.py` 가 `enabled: false` 로 생성 → 클라우드
+>   에선 AI 요약 없이 **집계 요약만** 나온다. AI 요약은 로컬 실행에서만.
 
 **Variables** (같은 화면 → *Variables*):
 
@@ -69,13 +75,36 @@ cp config.example.yaml config.yaml   # 값 채우기 (gitignore 됨)
 python -m venv .venv && source .venv/bin/activate
 pip install -e .            # 패키지 설치 (python -m weekly_report 사용 가능)
 
-# 발행/푸시 없이 노트 Markdown 만 출력 (안전한 미리보기)
+cp config.example.yaml config.yaml        # 값 채우기 (gitignore 됨)
+cp scripts/secrets.env.example scripts/secrets.env   # 토큰 채우기 (gitignore 됨)
+
+# 발행/푸시 없이 노트 Markdown 만 출력 (안전한 미리보기; AI 요약은 claude CLI 호출)
 python -m weekly_report --dry-run --since 2026-06-24 --until 2026-07-01
 
 python -m weekly_report --no-publish   # vault push 까지만
 python -m weekly_report --no-vault     # Confluence 발행만
-python -m weekly_report --no-summary   # AI 요약 생략
+python -m weekly_report --no-summary   # AI 요약 생략(집계만)
 ```
+
+## 로컬 자동 실행 (crontab, 권장)
+
+주간 실행은 `scripts/run_local.sh` 래퍼로 돈다. 시크릿을 `scripts/secrets.env`
+에서 읽고, AI 요약은 `claude` CLI(구독)로 생성한다 (`ANTHROPIC_API_KEY` 불필요).
+
+```bash
+cp scripts/secrets.env.example scripts/secrets.env   # 토큰 값 채우기
+scripts/run_local.sh --dry-run                       # 먼저 미리보기로 확인
+
+# crontab 등록 — 매주 월요일 09:00 KST 실행, 로그는 scripts/logs/ 에.
+crontab -e
+# 아래 한 줄 추가 (경로는 프로젝트 절대경로로):
+# 0 9 * * 1  cd /path/to/weekly-report && mkdir -p scripts/logs && \
+#   scripts/run_local.sh >> "scripts/logs/$(date +\%Y-\%m-\%d).log" 2>&1
+```
+
+> **놓친 주 보정**: cron 은 맥이 꺼져 있던 시각의 작업을 나중에 실행하지 않는다.
+> 월요일에 맥이 꺼져 있었다면, 아무 날이나 `scripts/run_local.sh` 를 직접 실행하면
+> 된다. 특정 주를 정확히 지정하려면 `--since/--until` 을 준다.
 
 ## 테스트
 
@@ -84,11 +113,12 @@ pip install pytest
 pytest
 ```
 
-## 자동 실행 (GitHub Actions)
+## 수동/백업 실행 (GitHub Actions)
 
-- `.github/workflows/weekly-report.yml`: 매주 월요일 00:00 UTC(=09:00 KST) 실행.
-- Repo Settings → Secrets 에 위 5개 값을 등록.
-- 수동 테스트는 Actions 탭에서 **Run workflow** (기간/dry-run 지정 가능).
+- 주간 cron 은 **비활성화**됨 (AI 요약이 로컬 전용이라). 워크플로는 수동
+  `Run workflow` (기간/dry-run 지정) 로만 사용한다.
+- 이 경로는 AI 요약 없이 **집계 요약만** 생성한다 (클라우드엔 claude CLI 없음).
+- Repo Settings → Secrets/Variables 값 필요 (위 표 참고).
 
 ## 멱등성
 

@@ -16,3 +16,7 @@ venv/
 out/
 *.local.md
 .env
+
+# 로컬 시크릿 (템플릿 secrets.env.example 만 커밋)
+scripts/secrets.env
+scripts/logs/

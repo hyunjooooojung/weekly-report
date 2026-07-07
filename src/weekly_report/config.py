@@ -50,8 +50,11 @@ class ConfluenceConfig:
 @dataclass
 class SummarizerConfig:
     enabled: bool = True
+    # "claude_cli": 로컬 Claude Code CLI(구독 인증, 무과금) / "api": Anthropic SDK(유료).
+    provider: str = "claude_cli"
     model: str = "claude-opus-4-8"
     language: str = "ko"
+    retrospective: bool = False   # "한 주 회고" 섹션 생성 여부 (AI 필요)
 
 
 # --- 민감 설정 (환경변수) -------------------------------------------------
@@ -181,8 +184,10 @@ def load_config(path: str | os.PathLike = "config.yaml") -> Config:
     sm = raw.get("summarizer", {})
     summarizer = SummarizerConfig(
         enabled=bool(sm.get("enabled", True)),
+        provider=str(sm.get("provider", "claude_cli")),
         model=sm.get("model", "claude-opus-4-8"),
         language=sm.get("language", "ko"),
+        retrospective=bool(sm.get("retrospective", False)),
     )
 
     return Config(

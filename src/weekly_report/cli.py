@@ -66,17 +66,19 @@ def run(args: argparse.Namespace) -> int:
         cfg.github, cfg.secrets.github_token, period.since, period.until
     )
 
-    # [2] 요약 (선택)
+    # [2] 요약 (선택). provider 에 따라 Claude CLI(구독) 또는 API 사용.
     summary = None
+    retrospective = None
     want_summary = cfg.summarizer.enabled and not args.no_summary
     if want_summary and commits:
-        cfg.secrets.require("anthropic_api_key")
-        summary = summarizer.summarize(
-            commits, cfg.summarizer, cfg.secrets.anthropic_api_key
-        )
+        result = summarizer.generate(commits, cfg.summarizer, cfg.secrets)
+        summary = result.body or None
+        retrospective = result.retrospective or None
 
     # [3] 노트 생성
-    note_md = note_builder.build_note(period, commits, summary)
+    note_md = note_builder.build_note(
+        period, commits, summary, retrospective=retrospective
+    )
     filename = note_builder.note_filename(period)
 
     if args.dry_run:

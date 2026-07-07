@@ -33,66 +33,61 @@ def test_week_label_and_filename():
     assert note_filename(p) == "Weekly Report 2026-W27.md"
 
 
-def test_build_note_contains_frontmatter_and_sections():
-    note = build_note(_period(), _commits(), summary_markdown="## 요약\n- 어쩌구")
+def test_build_note_frontmatter_and_stats():
+    note = build_note(_period(), _commits(), summary_markdown=None)
     assert note.startswith("---\n")
     assert "week: 2026-W27" in note
     assert "commit_count: 3" in note
-    # AI 요약을 넘기면 미니 요약 아래에 'AI 요약' 섹션으로 붙는다.
-    assert "## 📋 AI 요약" in note
-    assert "## 📑 커밋 상세 (원본)" in note
-    # repo 별 섹션과 커밋 링크가 있어야 함.
+    # 집계 블록 (API 없이 계산).
+    assert "## 🧮 집계" in note
+    assert "총 **3** 커밋" in note
+    assert "✨ 기능 1" in note
+    assert "🐛 버그 수정 1" in note
+    assert "🔧 기타 1" in note
+
+
+def test_build_note_detail_grouped_by_date():
+    note = build_note(_period(), _commits(), summary_markdown=None)
+    assert "## 📅 상세 (프로젝트·날짜별)" in note
     assert "### repo-a" in note
     assert "### repo-b" in note
+    # 날짜(요일) 소제목과 커밋 링크/저자.
+    assert "#### 6/25 (" in note
     assert "[`aaaaaaa`](https://x/a)" in note
     assert "_alice_" in note
 
 
-def test_build_note_groups_by_category():
+def test_summary_callout_present_and_prefixed():
+    note = build_note(
+        _period(), _commits(),
+        summary_markdown="## 기능\n- 대시보드 추가",
+    )
+    assert "> [!summary] 이번 주 요약" in note
+    # 콜아웃 본문은 각 줄이 '> ' 로 prefix 된다.
+    assert "> ## 기능" in note
+    assert "> - 대시보드 추가" in note
+
+
+def test_no_summary_no_retrospective_callouts():
     note = build_note(_period(), _commits(), summary_markdown=None)
-    # AI 요약을 안 넘기면 'AI 요약' 섹션은 빠진다.
-    assert "## 📋 AI 요약" not in note
-    assert "✨ 기능" in note
-    assert "🐛 버그 수정" in note
-    assert "🔧 기타" in note
+    assert "[!summary]" not in note
+    assert "[!note]" not in note
 
 
-def test_mini_summary_present_and_aggregates():
-    # AI 요약이 없어도 무료 미니 요약은 항상 들어간다.
-    note = build_note(_period(), _commits(), summary_markdown=None)
-    assert "## 🧮 이번 주 요약" in note
-    assert "총 **3** 커밋" in note
-    # 카테고리별 개수 집계 (feat/fix/chore 각 1건).
-    assert "✨ 기능 1" in note
-    assert "🐛 버그 수정 1" in note
-    assert "🔧 기타 1" in note
-    # 최근 커밋(최신순) 목록에 sha 링크가 노출된다 (가장 최근 = repo-b chore).
-    assert "([`ccccccc`](https://x/c))" in note
-
-
-def test_mini_summary_excludes_merge_from_recent_but_counts_it():
-    # 머지 커밋을 가장 최근 날짜로 추가 → 필터 없으면 목록 최상단에 뜬다.
-    commits = _commits() + [
-        Commit("repo-a", "9" * 40, "Merge pull request #9 from flunti/x", "eve",
-               datetime(2026, 6, 30, tzinfo=timezone.utc), "https://x/9"),
-    ]
-    note = build_note(_period(), commits, summary_markdown=None)
-
-    # 집계에는 포함: 총 4커밋, 미분류(머지) 1건.
-    assert "총 **4** 커밋" in note
-    assert "🗂 미분류 1" in note
-    # 원본 부록에도 존재.
-    assert "Merge pull request #9" in note
-
-    # '최근 커밋' 목록 구간에서만 머지가 빠져야 한다.
-    recent_section = note.split("최근 커밋", 1)[1].split("---", 1)[0]
-    assert "Merge pull request #9" not in recent_section
+def test_retrospective_callout():
+    note = build_note(
+        _period(), _commits(),
+        summary_markdown=None,
+        retrospective="이번 주는 결제 안정화에 집중했다.",
+    )
+    assert "> [!note] 한 주 회고" in note
+    assert "> 이번 주는 결제 안정화에 집중했다." in note
 
 
 def test_build_note_empty_week():
     note = build_note(_period(), [], summary_markdown=None)
     assert "수집된 커밋이 없습니다" in note
     assert "commit_count: 0" in note
-    # 빈 주에는 미니 요약도, 상세 부록도 만들지 않는다.
-    assert "커밋 상세" not in note
-    assert "이번 주 요약" not in note
+    # 빈 주에는 상세/집계를 만들지 않는다.
+    assert "상세" not in note
+    assert "집계" not in note

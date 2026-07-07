@@ -1,6 +1,12 @@
 import yaml
 
-from weekly_report.config import _parse_branches, _parse_repos
+from weekly_report.config import SummarizerConfig, _parse_branches, _parse_repos
+
+
+def test_summarizer_defaults_to_claude_cli():
+    s = SummarizerConfig()
+    assert s.provider == "claude_cli"   # 로컬 구독 CLI 가 기본 (무과금)
+    assert s.retrospective is False
 
 
 def test_parse_repos_single_string():

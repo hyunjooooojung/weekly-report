@@ -1,7 +1,7 @@
 """[3] Obsidian 노트(Markdown) 생성.
 
-부작용이 없는 순수 문자열 조립이라 단위 테스트가 쉽다. 최종 노트는
-YAML frontmatter + AI 요약(있으면) + 원본 커밋 부록으로 구성된다.
+부작용이 없는 순수 문자열 조립이라 단위 테스트가 쉽다. 최종 노트 구조:
+YAML frontmatter → (AI 요약 콜아웃) → 집계 → 프로젝트·날짜별 상세 → (회고 콜아웃).
 """
 
 from __future__ import annotations
@@ -12,8 +12,7 @@ from datetime import date, datetime
 
 from .models import CATEGORY_ORDER, Commit, category_label
 
-# 미니 요약에 노출할 "최근 커밋" 최대 개수.
-_RECENT_LIMIT = 5
+_WEEKDAY_KO = "월화수목금토일"  # date.weekday(): 월=0 … 일=6
 
 
 @dataclass
@@ -44,6 +43,7 @@ def build_note(
     commits: list[Commit],
     summary_markdown: str | None,
     *,
+    retrospective: str | None = None,
     created: date | None = None,
 ) -> str:
     """완성된 Obsidian 노트 Markdown 을 반환한다.
@@ -51,7 +51,8 @@ def build_note(
     Args:
         period: 리포트 기간.
         commits: 수집된 커밋 (정렬 여부 무관, 내부에서 그룹화).
-        summary_markdown: AI 요약 조각. None 이면 요약 섹션 생략.
+        summary_markdown: AI 요약. None 이면 요약 콜아웃 생략.
+        retrospective: AI 회고. None 이면 회고 콜아웃 생략.
         created: frontmatter 의 생성일. 기본은 period.until 날짜.
     """
     created = created or period.until.date()
@@ -68,31 +69,35 @@ def build_note(
         parts.append("> 이번 주에는 수집된 커밋이 없습니다.\n")
         return "\n".join(parts)
 
-    # 무료(집계형) 미니 요약 — API 없이 커밋을 세어 상단에 항상 노출.
-    parts.append(_mini_summary(commits))
-
-    # AI 요약은 있으면(summarizer.enabled) 미니 요약 아래에 덧붙인다.
+    # AI 요약 (있을 때만) — Obsidian summary 콜아웃으로 강조.
     if summary_markdown:
-        parts.append("## 📋 AI 요약\n")
-        parts.append(summary_markdown.strip() + "\n")
+        parts.append(_callout("summary", "이번 주 요약", summary_markdown))
+
+    # 무료(집계형) 통계 — API 없이 커밋을 세어 항상 노출.
+    parts.append(_stats(commits))
 
     parts.append("---\n")
-    parts.append("## 📑 커밋 상세 (원본)\n")
-    parts.append(_appendix(commits))
+    parts.append("## 📅 상세 (프로젝트·날짜별)\n")
+    parts.append(_detail(commits))
+
+    # AI 회고 (있을 때만) — Obsidian note 콜아웃.
+    if retrospective:
+        parts.append(_callout("note", "한 주 회고", retrospective))
 
     return "\n".join(parts)
 
 
-def _mini_summary(commits: list[Commit]) -> str:
-    """API 없이 커밋을 집계한 무료 미니 요약 블록.
+def _callout(kind: str, title: str, body: str) -> str:
+    """Obsidian 콜아웃(`> [!kind] title`) 으로 본문을 감싼다."""
+    lines = [f"> [!{kind}] {title}"]
+    for ln in body.strip().splitlines():
+        lines.append(f"> {ln}" if ln.strip() else ">")
+    return "\n".join(lines) + "\n"
 
-    (a) 총 커밋수 + 대상 repo, (b) 카테고리별 개수 한 줄,
-    (c) 최신순 상위 몇 건의 커밋을 이모지·sha 링크로 나열한다.
-    커밋의 '중요도'를 판정할 수단이 없으므로 정직하게 날짜 최신순으로 뽑는다.
-    """
+
+def _stats(commits: list[Commit]) -> str:
+    """총 커밋수 + 카테고리별 개수(집계). API 없이 계산."""
     repos = sorted({c.repo for c in commits})
-
-    # 카테고리별 개수 (정의된 순서대로, 존재하는 것만).
     counts: dict[str, int] = defaultdict(int)
     for c in commits:
         counts[c.category] += 1
@@ -102,23 +107,41 @@ def _mini_summary(commits: list[Commit]) -> str:
         if counts.get(cat)
     ]
 
-    lines: list[str] = ["## 🧮 이번 주 요약\n"]
-    lines.append(f"- 총 **{len(commits)}** 커밋 · {', '.join(repos)}")
+    lines = ["## 🧮 집계\n", f"- 총 **{len(commits)}** 커밋 · {', '.join(repos)}"]
     if count_parts:
         lines.append(f"- {' · '.join(count_parts)}")
-
-    # 집계(위 개수)에는 머지 커밋이 포함되지만, '최근 커밋' 목록에서는
-    # 노이즈라 제외한다. (머지 커밋만 있는 주라면 목록 자체를 생략.)
-    non_merge = [c for c in commits if not c.is_merge]
-    recent = sorted(non_merge, key=lambda c: c.date, reverse=True)[:_RECENT_LIMIT]
-    if recent:
-        lines.append("- 최근 커밋 (최신순, 머지 제외):")
-        for c in recent:
-            emoji = category_label(c.category).split(" ", 1)[0]  # 라벨 앞의 이모지만
-            subject = c.subject.replace("\n", " ")
-            lines.append(f"    - {emoji} {subject} ([`{c.short_sha}`]({c.url}))")
-
     return "\n".join(lines) + "\n"
+
+
+def _weekday_ko(d: date) -> str:
+    return _WEEKDAY_KO[d.weekday()]
+
+
+def _detail(commits: list[Commit]) -> str:
+    """repo → 날짜(요일) 순으로 그룹화한 원본 커밋 목록."""
+    by_repo: dict[str, list[Commit]] = defaultdict(list)
+    for c in commits:
+        by_repo[c.repo].append(c)
+
+    lines: list[str] = []
+    for repo in sorted(by_repo):
+        lines.append(f"### {repo}\n")
+        by_day: dict[date, list[Commit]] = defaultdict(list)
+        for c in by_repo[repo]:
+            by_day[c.date.date()].append(c)
+
+        for day in sorted(by_day):
+            lines.append(f"#### {day.month}/{day.day} ({_weekday_ko(day)})\n")
+            for c in sorted(by_day[day], key=lambda x: x.date):
+                emoji = category_label(c.category).split(" ", 1)[0]  # 라벨 앞 이모지
+                subject = c.subject.replace("\n", " ")
+                lines.append(
+                    f"- {emoji} {subject} "
+                    f"([`{c.short_sha}`]({c.url})) — _{c.author}_"
+                )
+            lines.append("")  # 날짜 그룹 사이 빈 줄
+
+    return "\n".join(lines)
 
 
 def _frontmatter(
@@ -140,33 +163,3 @@ def _frontmatter(
         f"{repo_lines}\n"
         "---\n"
     )
-
-
-def _appendix(commits: list[Commit]) -> str:
-    """repo → 카테고리 순으로 그룹화한 원본 커밋 목록."""
-    by_repo: dict[str, list[Commit]] = defaultdict(list)
-    for c in commits:
-        by_repo[c.repo].append(c)
-
-    lines: list[str] = []
-    for repo in sorted(by_repo):
-        lines.append(f"### {repo}\n")
-        by_cat: dict[str, list[Commit]] = defaultdict(list)
-        for c in by_repo[repo]:
-            by_cat[c.category].append(c)
-
-        # 정의된 카테고리 순서대로, 해당 repo 에 존재하는 것만 출력.
-        for cat in CATEGORY_ORDER:
-            group = by_cat.get(cat)
-            if not group:
-                continue
-            lines.append(f"**{category_label(cat)}**\n")
-            for c in sorted(group, key=lambda x: x.date):
-                subject = c.subject.replace("\n", " ")
-                lines.append(
-                    f"- [`{c.short_sha}`]({c.url}) {subject} "
-                    f"— _{c.author}_"
-                )
-            lines.append("")  # 그룹 사이 빈 줄
-
-    return "\n".join(lines)
