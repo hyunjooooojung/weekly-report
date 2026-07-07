@@ -44,7 +44,8 @@ def main() -> None:
         "obsidian": {
             "vault_repo": _require_env("VAULT_REPO"),         # "owner/name" 형식
             "vault_branch": os.environ.get("VAULT_BRANCH", "").strip() or "main",
-            "notes_dir": "Weekly Reports",
+            # 저장 폴더 (vault 내 상대경로, 중첩 가능). 미지정 시 "Weekly Reports".
+            "notes_dir": os.environ.get("NOTES_DIR", "").strip() or "Weekly Reports",
         },
         "confluence": {
             "base_url": _require_env("CONFLUENCE_BASE_URL"),

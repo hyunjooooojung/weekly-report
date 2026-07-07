@@ -53,6 +53,7 @@ GitHub organization 내 지정 리포지토리들의 커밋을 매주 자동 수
 | `GH_BRANCHES` | `dev,stg,main` (생략 시 기본 브랜치) |
 | `VAULT_REPO` | `owner/name` (⚠️ URL 아님) |
 | `VAULT_BRANCH` | `main` (선택) |
+| `NOTES_DIR` | `Weekly Reports` (선택, 중첩 경로 가능. 미지정 시 기본값) |
 | `CONFLUENCE_BASE_URL` | `https://xxx.atlassian.net/wiki` |
 | `CONFLUENCE_SPACE_KEY` | `~6318...` |
 | `CONFLUENCE_PARENT_PAGE_ID` | (선택) |

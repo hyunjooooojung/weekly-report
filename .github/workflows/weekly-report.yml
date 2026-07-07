@@ -44,6 +44,7 @@ jobs:
           GH_BRANCHES: ${{ vars.GH_BRANCHES }}
           VAULT_REPO: ${{ vars.VAULT_REPO }}
           VAULT_BRANCH: ${{ vars.VAULT_BRANCH }}
+          NOTES_DIR: ${{ vars.NOTES_DIR }}
           CONFLUENCE_BASE_URL: ${{ vars.CONFLUENCE_BASE_URL }}
           CONFLUENCE_SPACE_KEY: ${{ vars.CONFLUENCE_SPACE_KEY }}
           CONFLUENCE_PARENT_PAGE_ID: ${{ vars.CONFLUENCE_PARENT_PAGE_ID }}
