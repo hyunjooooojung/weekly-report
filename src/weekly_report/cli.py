@@ -36,12 +36,32 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--no-publish", action="store_true", help="Confluence 발행 생략")
     p.add_argument("--no-vault", action="store_true", help="vault push 생략")
     p.add_argument("--no-summary", action="store_true", help="AI 요약 생략")
+    p.add_argument(
+        "--last-week",
+        action="store_true",
+        help="지난주(월~금)를 대상으로 (cron 용). --since/--until 보다 우선.",
+    )
     p.add_argument("-v", "--verbose", action="store_true", help="디버그 로그")
     return p.parse_args(argv)
 
 
+def _last_week_range(now: datetime) -> tuple[datetime, datetime]:
+    """now 기준 '지난주 월요일 00:00 ~ 지난주 금요일 끝(23:59:59)' 을 반환."""
+    this_monday = (now - timedelta(days=now.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    last_monday = this_monday - timedelta(days=7)
+    last_friday = last_monday + timedelta(days=4)
+    until = last_friday + timedelta(days=1) - timedelta(microseconds=1)
+    return last_monday, until
+
+
 def _resolve_period(cfg: Config, args: argparse.Namespace) -> ReportPeriod:
-    """--since/--until 또는 lookback_days 로 기간을 계산 (UTC, tz-aware)."""
+    """--last-week / --since/--until / lookback_days 로 기간 계산 (UTC, tz-aware)."""
+    if getattr(args, "last_week", False):
+        since, until = _last_week_range(datetime.now(timezone.utc))
+        return ReportPeriod(since=since, until=until)
+
     if args.until:
         until = datetime.fromisoformat(args.until).replace(tzinfo=timezone.utc)
         # 'YYYY-MM-DD' 처럼 자정으로 들어오면 그 날 전체를 포함하도록 하루 끝으로.

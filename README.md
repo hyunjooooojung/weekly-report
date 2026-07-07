@@ -95,12 +95,16 @@ python -m weekly_report --no-summary   # AI 요약 생략(집계만)
 cp scripts/secrets.env.example scripts/secrets.env   # 토큰 값 채우기
 scripts/run_local.sh --dry-run                       # 먼저 미리보기로 확인
 
-# crontab 등록 — 매주 월요일 09:00 KST 실행, 로그는 scripts/logs/ 에.
+# crontab 등록 — 매주 월요일 09:00 KST 에 '지난주(월~금)' 를 정리. 로그는 scripts/logs/ 에.
 crontab -e
 # 아래 한 줄 추가 (경로는 프로젝트 절대경로로):
 # 0 9 * * 1  cd /path/to/weekly-report && mkdir -p scripts/logs && \
-#   scripts/run_local.sh >> "scripts/logs/$(date +\%Y-\%m-\%d).log" 2>&1
+#   scripts/run_local.sh --last-week >> "scripts/logs/$(date +\%Y-\%m-\%d).log" 2>&1
 ```
+
+> `--last-week` 는 실행 시점 기준 **직전 주 월~금** 을 대상으로 한다 (backfill 과
+> 동일한 주 경계). 과거 특정 주를 다시 만들려면 `--since/--until` 을 직접 준다.
+> 과거 여러 주 일괄 생성은 `scripts/backfill.sh` 참고.
 
 > **놓친 주 보정**: cron 은 맥이 꺼져 있던 시각의 작업을 나중에 실행하지 않는다.
 > 월요일에 맥이 꺼져 있었다면, 아무 날이나 `scripts/run_local.sh` 를 직접 실행하면
