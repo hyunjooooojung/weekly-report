@@ -107,12 +107,16 @@ def _mini_summary(commits: list[Commit]) -> str:
     if count_parts:
         lines.append(f"- {' · '.join(count_parts)}")
 
-    recent = sorted(commits, key=lambda c: c.date, reverse=True)[:_RECENT_LIMIT]
-    lines.append("- 최근 커밋 (최신순):")
-    for c in recent:
-        emoji = category_label(c.category).split(" ", 1)[0]  # 라벨 앞의 이모지만
-        subject = c.subject.replace("\n", " ")
-        lines.append(f"    - {emoji} {subject} ([`{c.short_sha}`]({c.url}))")
+    # 집계(위 개수)에는 머지 커밋이 포함되지만, '최근 커밋' 목록에서는
+    # 노이즈라 제외한다. (머지 커밋만 있는 주라면 목록 자체를 생략.)
+    non_merge = [c for c in commits if not c.is_merge]
+    recent = sorted(non_merge, key=lambda c: c.date, reverse=True)[:_RECENT_LIMIT]
+    if recent:
+        lines.append("- 최근 커밋 (최신순, 머지 제외):")
+        for c in recent:
+            emoji = category_label(c.category).split(" ", 1)[0]  # 라벨 앞의 이모지만
+            subject = c.subject.replace("\n", " ")
+            lines.append(f"    - {emoji} {subject} ([`{c.short_sha}`]({c.url}))")
 
     return "\n".join(lines) + "\n"
 

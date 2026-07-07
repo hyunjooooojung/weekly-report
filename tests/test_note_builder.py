@@ -70,6 +70,25 @@ def test_mini_summary_present_and_aggregates():
     assert "([`ccccccc`](https://x/c))" in note
 
 
+def test_mini_summary_excludes_merge_from_recent_but_counts_it():
+    # 머지 커밋을 가장 최근 날짜로 추가 → 필터 없으면 목록 최상단에 뜬다.
+    commits = _commits() + [
+        Commit("repo-a", "9" * 40, "Merge pull request #9 from flunti/x", "eve",
+               datetime(2026, 6, 30, tzinfo=timezone.utc), "https://x/9"),
+    ]
+    note = build_note(_period(), commits, summary_markdown=None)
+
+    # 집계에는 포함: 총 4커밋, 미분류(머지) 1건.
+    assert "총 **4** 커밋" in note
+    assert "🗂 미분류 1" in note
+    # 원본 부록에도 존재.
+    assert "Merge pull request #9" in note
+
+    # '최근 커밋' 목록 구간에서만 머지가 빠져야 한다.
+    recent_section = note.split("최근 커밋", 1)[1].split("---", 1)[0]
+    assert "Merge pull request #9" not in recent_section
+
+
 def test_build_note_empty_week():
     note = build_note(_period(), [], summary_markdown=None)
     assert "수집된 커밋이 없습니다" in note

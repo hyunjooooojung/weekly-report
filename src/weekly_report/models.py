@@ -46,6 +46,15 @@ class Commit:
         return self.message.strip().splitlines()[0] if self.message.strip() else ""
 
     @property
+    def is_merge(self) -> bool:
+        """머지 커밋 추정. GitHub 기본 머지 메시지는 'Merge ' 로 시작한다.
+
+        (예: 'Merge pull request #1 ...', 'Merge branch ...') 집계에는 포함하되
+        요약의 '최근 커밋' 목록에서 걸러내는 용도.
+        """
+        return self.subject.startswith("Merge ")
+
+    @property
     def category(self) -> str:
         """Conventional Commits prefix 로 추론한 카테고리 키 (없으면 'other')."""
         m = _CONVENTIONAL_RE.match(self.subject)
