@@ -44,6 +44,10 @@ def _resolve_period(cfg: Config, args: argparse.Namespace) -> ReportPeriod:
     """--since/--until 또는 lookback_days 로 기간을 계산 (UTC, tz-aware)."""
     if args.until:
         until = datetime.fromisoformat(args.until).replace(tzinfo=timezone.utc)
+        # 'YYYY-MM-DD' 처럼 자정으로 들어오면 그 날 전체를 포함하도록 하루 끝으로.
+        # (예: --until 2026-01-09 → 금요일 커밋까지 온전히 수집)
+        if (until.hour, until.minute, until.second) == (0, 0, 0):
+            until = until + timedelta(days=1) - timedelta(microseconds=1)
     else:
         until = datetime.now(timezone.utc)
 
