@@ -19,7 +19,7 @@ _CATEGORY_LABELS: dict[str, str] = {
     "style": "💄 스타일",
     "chore": "🔧 기타",
     "revert": "⏪ 되돌림",
-    "other": "🗂 기타",
+    "other": "🗂 미분류",  # Conventional Commits prefix 가 없는 커밋 (chore='🔧 기타' 와 구분)
 }
 
 _CONVENTIONAL_RE = re.compile(r"^(?P<type>[a-z]+)(\([^)]*\))?!?:", re.IGNORECASE)
