@@ -87,29 +87,46 @@ python -m weekly_report --no-vault     # Confluence 발행만
 python -m weekly_report --no-summary   # AI 요약 생략(집계만)
 ```
 
-## 로컬 자동 실행 (crontab, 권장)
+## 주간 실행 (`scripts/run_local.sh`)
 
 주간 실행은 `scripts/run_local.sh` 래퍼로 돈다. 시크릿을 `scripts/secrets.env`
 에서 읽고, AI 요약은 `claude` CLI(구독)로 생성한다 (`ANTHROPIC_API_KEY` 불필요).
+`config.yaml`/`secrets.env` 만 채워두면 아무 인자로나 바로 실행할 수 있다.
 
 ```bash
-cp scripts/secrets.env.example scripts/secrets.env   # 토큰 값 채우기
-scripts/run_local.sh --dry-run                       # 먼저 미리보기로 확인
+cp scripts/secrets.env.example scripts/secrets.env   # 토큰 값 채우기 (최초 1회)
 
-# crontab 등록 — 매주 월요일 09:00 KST 에 '지난주(월~금)' 를 정리. 로그는 scripts/logs/ 에.
+# ── 자주 쓰는 실행 예시 ─────────────────────────────
+scripts/run_local.sh --last-week            # 지난주(월~금)를 정리 → vault + Confluence 발행
+scripts/run_local.sh --last-week --dry-run  # 발행 없이 미리보기 (안전 확인용)
+
+# 특정 주를 지정해서 생성 (월요일~금요일)
+scripts/run_local.sh --since 2026-07-06 --until 2026-07-10
+
+# 부작용 단계 끄기 (조합 가능)
+scripts/run_local.sh --last-week --no-publish   # vault push 까지만 (Confluence 제외)
+scripts/run_local.sh --last-week --no-vault     # Confluence 발행만 (vault 제외)
+scripts/run_local.sh --last-week --no-summary   # AI 요약 생략, 집계만
+```
+
+> `--last-week` 는 실행 시점 기준 **직전 주 월~금** 을 대상으로 한다 (backfill 과
+> 동일한 주 경계). 과거 여러 주 일괄 생성은 `scripts/backfill.sh` 참고
+> (스크립트 안의 `mondays` 목록을 원하는 주로 편집).
+
+### (선택) crontab 으로 자동화
+
+매주 자동 실행을 원하면 crontab 에 등록한다. 수동 실행과 결과는 동일하다.
+
+```bash
 crontab -e
-# 아래 한 줄 추가 (경로는 프로젝트 절대경로로):
+# 아래 한 줄 추가 — 매주 월요일 09:00 KST 에 지난주를 정리. 로그는 scripts/logs/ 에.
 # 0 9 * * 1  cd /path/to/weekly-report && mkdir -p scripts/logs && \
 #   scripts/run_local.sh --last-week >> "scripts/logs/$(date +\%Y-\%m-\%d).log" 2>&1
 ```
 
-> `--last-week` 는 실행 시점 기준 **직전 주 월~금** 을 대상으로 한다 (backfill 과
-> 동일한 주 경계). 과거 특정 주를 다시 만들려면 `--since/--until` 을 직접 준다.
-> 과거 여러 주 일괄 생성은 `scripts/backfill.sh` 참고.
-
-> **놓친 주 보정**: cron 은 맥이 꺼져 있던 시각의 작업을 나중에 실행하지 않는다.
-> 월요일에 맥이 꺼져 있었다면, 아무 날이나 `scripts/run_local.sh` 를 직접 실행하면
-> 된다. 특정 주를 정확히 지정하려면 `--since/--until` 을 준다.
+> macOS 는 cron 이 파일에 접근하려면 **전체 디스크 접근 권한**(`/usr/sbin/cron`)이
+> 필요하고, 실행 시각에 맥이 꺼져 있으면 그 주는 **건너뛴다**(나중에 보정 안 함).
+> 놓쳤다면 아무 날이나 `scripts/run_local.sh --last-week` 로 직접 실행하면 된다.
 
 ## 테스트
 
